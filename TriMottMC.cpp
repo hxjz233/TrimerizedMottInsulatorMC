@@ -168,7 +168,7 @@ int main()
 
     double Tmin = 0.5;
     double Tmax = 5;
-    double Tstep = 0.05;
+    double Tstep = 0.1;
     double temperature[(int)((Tmax-Tmin)/Tstep)];
 
     int tempLength = sizeof(temperature) / sizeof(temperature[0]);
@@ -179,7 +179,8 @@ int main()
 
     int simulationCount = 10;
     int totalSweep = 1E5;
-    int sweepPerSample = totalSweep / 50;
+    // int sweepPerSample = totalSweep / 50;
+    int sweepPerSample = 50;
     double relaxationTime = 0.1;
 
 
@@ -191,17 +192,25 @@ int main()
     double resultM[simulationCount][tempLength];
     double resultMsq[simulationCount][tempLength];
 
+    double configEnergy;
+    double sampledEnergy;
+    double sampledEsq;
+    double configMagnetization;
+    double sampledM;
+    double sampledMsq;
+    int totalSampleNum;
+
     for (int simuindex=0; simuindex<simulationCount; simuindex++)
     {
         for (int tempindex=0; tempindex<tempLength; tempindex++)
         {
-            double configEnergy = 0;
-            double sampledEnergy = 0;
-            double sampledEsq = 0;
-            double configMagnetization = 0;
-            double sampledM = 0;
-            double sampledMsq = 0;
-            int totalSampleNum = 0;
+            configEnergy = 0;
+            sampledEnergy = 0;
+            sampledEsq = 0;
+            configMagnetization = 0;
+            sampledM = 0;
+            sampledMsq = 0;
+            totalSampleNum = 0;
 
             Lattice lattice(latSize,latNeighbor,interactionJ,temperature[tempindex]);
 

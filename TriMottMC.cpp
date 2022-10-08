@@ -28,14 +28,14 @@ class Lattice
             return configE;
         }
 
-        double GetAveMagnetization()
+        double GetMagnetization()
         {
             configM = 0;
             for (int i=0; i<pow(m_size,2); i++)
             {
                 configM += spinConfig[i];
             }
-            return configM / pow(m_size,2);
+            return configM;
         }
 
         void DebugOutput()
@@ -219,10 +219,9 @@ int main()
                     configEnergy = lattice.GetEnergy();
                     sampledEnergy += configEnergy;
                     sampledEsq += pow(configEnergy,2);
-                    configMagnetization = lattice.GetAveMagnetization();
+                    configMagnetization = lattice.GetMagnetization();
                     sampledM += configMagnetization;
                     sampledMsq += pow(configMagnetization,2);
-
                 }
             }
 

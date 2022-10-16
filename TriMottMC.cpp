@@ -16,7 +16,7 @@ class Lattice
     static const int NEIGHBOR_MAX = 6;
 
     public:
-        Lattice(int size, int neighborNum, double interactionJ, double temperature);
+        Lattice(int size, int neighborNum, double interactionJ, double temperature, double externalMagField);
 
         void SetNeighborIndex();
         void InitSpin();
@@ -28,15 +28,15 @@ class Lattice
             return configE;
         }
 
-        // double GetMagnetization()
-        // {
-        //     configM = 0;
-        //     for (int i=0; i<pow(m_size,2); i++)
-        //     {
-        //         configM += spinConfig[i];
-        //     }
-        //     return configM;
-        // }
+        double GetMagnetization()
+        {
+            configM = 0;
+            for (int i=0; i<pow(m_size,2); i++)
+            {
+                configM += GetSiteZComponent(i);
+            }
+            return configM;
+        }
 
         void DebugOutput()
         {
@@ -56,6 +56,7 @@ class Lattice
         int m_neighborNum;
         double m_interactionJ;
         double m_temperature;
+        double m_externalMagField;
 
         double configE;
         double deltaE;
@@ -90,6 +91,11 @@ class Lattice
             temp_randomSphericalDirection[1] = 2 * M_PI * realRand(engineTime);
         }
 
+        double GetSiteZComponent(int site)
+        {
+            return cos(spinConfig[site][0]);
+        }
+
         double GetSiteInnerProduct(int site1, int site2)
         {
             return sin(spinConfig[site1][0]) * sin(spinConfig[site2][0]) * cos(spinConfig[site1][1]-spinConfig[site2][1])
@@ -97,8 +103,8 @@ class Lattice
         }
 };
 
-Lattice::Lattice(int size, int neighborNum, double interactionJ, double temperature)
-    : m_size(size), m_neighborNum(neighborNum), m_interactionJ(interactionJ), m_temperature(temperature)
+Lattice::Lattice(int size, int neighborNum, double interactionJ, double temperature, double externalMagField=0)
+    : m_size(size), m_neighborNum(neighborNum), m_interactionJ(interactionJ), m_temperature(temperature), m_externalMagField(externalMagField)
 {
     SetNeighborIndex();
     InitSpin();
@@ -110,11 +116,11 @@ Lattice::Lattice(int size, int neighborNum, double interactionJ, double temperat
             for (int k=0; k<m_neighborNum; k++)
             {
                 // configE += m_interactionJ * spinConfig[i*m_size+j] * spinConfig[neighbor[i*m_size+j][k]];
-                configE += m_interactionJ * Lattice::GetSiteInnerProduct(i*m_size+j,neighbor[i*m_size+j][k]);
+                configE += m_interactionJ * Lattice::GetSiteInnerProduct(i*m_size+j,neighbor[i*m_size+j][k]) / 2;
             }
+            configE -= m_externalMagField * Lattice::GetSiteZComponent(i*m_size+j);
         }
     }
-    configE /= 2;
 }
 
 void Lattice::SetNeighborIndex()
@@ -175,6 +181,7 @@ void Lattice::SweepFlip()
             {
                 deltaE -= m_interactionJ * Lattice::GetSiteInnerProduct(temp_flipPos,neighbor[temp_flipPos][k]);
             }
+            deltaE += m_externalMagField * Lattice::GetSiteZComponent(temp_flipPos);
 
             spinConfig[temp_flipPos][0] = temp_randomSphericalDirection[0];
             spinConfig[temp_flipPos][1] = temp_randomSphericalDirection[1];
@@ -183,6 +190,7 @@ void Lattice::SweepFlip()
             {
                 deltaE += m_interactionJ * Lattice::GetSiteInnerProduct(temp_flipPos,neighbor[temp_flipPos][k]);
             }
+            deltaE -= m_externalMagField * Lattice::GetSiteZComponent(temp_flipPos);
 
             if (realRand(engineTime) < exp(-deltaE / m_temperature))
             {
@@ -204,6 +212,7 @@ int main()
     int latSize = 1;
     int latNeighbor = 4;
     double interactionJ = -1.0;
+    double externalZMageticField = 1.0;
 
     double Tmin = 0.1;
     double Tmax = 5;
@@ -239,7 +248,7 @@ int main()
     double sampledM;
     double sampledMsq;
     int totalSampleNum;
-    double energySequence[simulationCount][(int)(totalSweep*relaxationTime)];
+    // double energySequence[simulationCount][(int)(totalSweep*relaxationTime)];
 
     for (int simuindex=0; simuindex<simulationCount; simuindex++)
     {
@@ -253,13 +262,13 @@ int main()
             sampledMsq = 0;
             totalSampleNum = 0;
 
-            Lattice lattice(latSize,latNeighbor,interactionJ,temperature[tempindex]);
+            Lattice lattice(latSize,latNeighbor,interactionJ,temperature[tempindex],externalZMageticField);
 
             for (int i=0; i<totalSweep*relaxationTime; i++)
             {
-                configEnergy = lattice.GetEnergy();
-                energySequence[simuindex][i] = configEnergy;
-                lattice.SweepFlip();                
+                // configEnergy = lattice.GetEnergy();
+                // energySequence[simuindex][i] = configEnergy;
+                lattice.SweepFlip();
             }
 
             for (int i=0; i<totalSweep*(1-relaxationTime); i++)
@@ -271,32 +280,32 @@ int main()
                     sampledEnergy += configEnergy;
                     sampledEsq += pow(configEnergy,2);
                     totalSampleNum++;
-                    // configMagnetization = lattice.GetMagnetization();
-                    // sampledM += configMagnetization;
-                    // sampledMsq += pow(configMagnetization,2);
+                    configMagnetization = lattice.GetMagnetization();
+                    sampledM += configMagnetization;
+                    sampledMsq += pow(configMagnetization,2);
                 }
             }
 
             resultE[simuindex][tempindex] = sampledEnergy / totalSampleNum;
             resultEsq[simuindex][tempindex] = sampledEsq / totalSampleNum;
-            // resultM[simuindex][tempindex] = sampledM / totalSampleNum;
-            // resultMsq[simuindex][tempindex] = sampledMsq / totalSampleNum;
+            resultM[simuindex][tempindex] = sampledM / totalSampleNum;
+            resultMsq[simuindex][tempindex] = sampledMsq / totalSampleNum;
         }
     }
 
     clock_t calc_time = clock();
     cout << "Calculation finished, elapsed time: " << (double)(calc_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
 
-    fout.open("validateEquilibrium.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<totalSweep*relaxationTime; j++)
-        {
-            fout << energySequence[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
+    // fout.open("validateEquilibrium.csv",ios::out);
+    // for (int i=0; i<simulationCount; i++)
+    // {
+    //     for (int j=0; j<totalSweep*relaxationTime; j++)
+    //     {
+    //         fout << energySequence[i][j] << ",";
+    //     }
+    //     fout << endl;
+    // }
+    // fout.close();
 
     fout.open("temperature.csv",ios::out);
     for (int i=0; i<tempLength; i++)
@@ -327,25 +336,25 @@ int main()
     }
     fout.close();
 
-    // fout.open("resultM.csv",ios::out);
-    // for (int i=0; i<simulationCount; i++)
-    // {
-    //     for (int j=0; j<tempLength; j++)
-    //     {
-    //         fout << resultM[i][j] << ",";
-    //     }
-    //     fout << endl;
-    // }
-    // fout.close();
+    fout.open("resultM.csv",ios::out);
+    for (int i=0; i<simulationCount; i++)
+    {
+        for (int j=0; j<tempLength; j++)
+        {
+            fout << resultM[i][j] << ",";
+        }
+        fout << endl;
+    }
+    fout.close();
 
-    // fout.open("resultMsq.csv",ios::out);
-    // for (int i=0; i<simulationCount; i++)
-    // {
-    //     for (int j=0; j<tempLength; j++)
-    //     {
-    //         fout << resultMsq[i][j] << ",";
-    //     }
-    //     fout << endl;
-    // }
+    fout.open("resultMsq.csv",ios::out);
+    for (int i=0; i<simulationCount; i++)
+    {
+        for (int j=0; j<tempLength; j++)
+        {
+            fout << resultMsq[i][j] << ",";
+        }
+        fout << endl;
+    }
     fout.close();
 }

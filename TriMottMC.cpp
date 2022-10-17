@@ -16,7 +16,7 @@ class Lattice
     static const int NEIGHBOR_MAX = 6;
 
     public:
-        Lattice(int size, int neighborNum, double interactionJ, double temperature, double externalMagField);
+        Lattice(int row, int column, int neighborNum, double interactionJ, double temperature, double externalMagField);
 
         void SetNeighborIndex();
         void InitSpin();
@@ -31,7 +31,7 @@ class Lattice
         double GetMagnetization()
         {
             configM = 0;
-            for (int i=0; i<pow(m_size,2); i++)
+            for (int i=0; i<m_size1*m_size2; i++)
             {
                 configM += GetSiteZComponent(i);
             }
@@ -52,7 +52,8 @@ class Lattice
         }
 
     private:
-        int m_size;
+        int m_size1;
+        int m_size2;
         int m_neighborNum;
         double m_interactionJ;
         double m_temperature;
@@ -71,18 +72,18 @@ class Lattice
 
         int GetFlattenedCoordinate(int stackedIndex1, int stackedIndex2)
         {
-            if (stackedIndex1 < 0)  stackedIndex1 += m_size;
-            if (stackedIndex1 >= m_size)  stackedIndex1 -= m_size;
-            if (stackedIndex2 < 0)  stackedIndex2 += m_size;
-            if (stackedIndex2 >= m_size)  stackedIndex2 -= m_size;
+            if (stackedIndex1 < 0)  stackedIndex1 += m_size1;
+            if (stackedIndex1 >= m_size1)  stackedIndex1 -= m_size1;
+            if (stackedIndex2 < 0)  stackedIndex2 += m_size2;
+            if (stackedIndex2 >= m_size2)  stackedIndex2 -= m_size2;
 
-            return stackedIndex1 * m_size + stackedIndex2;
+            return stackedIndex1 * m_size1 + stackedIndex2;
         }
 
         void GetStackedCoordinate(int flattenedIndex)
         {
-            temp_stackedIndex[0] = int(flattenedIndex / m_size);
-            temp_stackedIndex[1] = flattenedIndex % m_size;
+            temp_stackedIndex[0] = int(flattenedIndex / m_size1);
+            temp_stackedIndex[1] = flattenedIndex % m_size1;
         }
 
         void SetRandomSphericalDirection()
@@ -103,49 +104,49 @@ class Lattice
         }
 };
 
-Lattice::Lattice(int size, int neighborNum, double interactionJ, double temperature, double externalMagField=0)
-    : m_size(size), m_neighborNum(neighborNum), m_interactionJ(interactionJ), m_temperature(temperature), m_externalMagField(externalMagField)
+Lattice::Lattice(int row, int column, int neighborNum, double interactionJ, double temperature, double externalMagField=0)
+    : m_size1(column), m_size2(row), m_neighborNum(neighborNum), m_interactionJ(interactionJ), m_temperature(temperature), m_externalMagField(externalMagField)
 {
     SetNeighborIndex();
     InitSpin();
     configE = 0;
-    for (int i=0; i<m_size; i++)
+    for (int i=0; i<m_size1; i++)
     {
-        for (int j=0; j<m_size; j++)
+        for (int j=0; j<m_size2; j++)
         {
             for (int k=0; k<m_neighborNum; k++)
             {
                 // configE += m_interactionJ * spinConfig[i*m_size+j] * spinConfig[neighbor[i*m_size+j][k]];
-                configE += m_interactionJ * Lattice::GetSiteInnerProduct(i*m_size+j,neighbor[i*m_size+j][k]) / 2;
+                configE += m_interactionJ * Lattice::GetSiteInnerProduct(i*m_size1+j,neighbor[i*m_size1+j][k]) / 2;
             }
-            configE -= m_externalMagField * Lattice::GetSiteZComponent(i*m_size+j);
+            configE -= m_externalMagField * Lattice::GetSiteZComponent(i*m_size1+j);
         }
     }
 }
 
 void Lattice::SetNeighborIndex()
 {
-    for (int i=0; i<m_size; i++)
+    for (int i=0; i<m_size1; i++)
     {
-        for (int j=0; j<m_size; j++)
+        for (int j=0; j<m_size2; j++)
         {
-            neighbor[i*m_size+j][0] = Lattice::GetFlattenedCoordinate(i,j+1);
-            neighbor[i*m_size+j][1] = Lattice::GetFlattenedCoordinate(i-1,j);
-            neighbor[i*m_size+j][2] = Lattice::GetFlattenedCoordinate(i,j-1);
-            neighbor[i*m_size+j][3] = Lattice::GetFlattenedCoordinate(i+1,j);
+            neighbor[i*m_size1+j][0] = Lattice::GetFlattenedCoordinate(i,j+1);
+            neighbor[i*m_size1+j][1] = Lattice::GetFlattenedCoordinate(i-1,j);
+            neighbor[i*m_size1+j][2] = Lattice::GetFlattenedCoordinate(i,j-1);
+            neighbor[i*m_size1+j][3] = Lattice::GetFlattenedCoordinate(i+1,j);
         }
     }
 }
 
 void Lattice::InitSpin()
 {
-    for (int i=0; i<m_size; i++)
+    for (int i=0; i<m_size1; i++)
     {
-        for (int j=0; j<m_size; j++)
+        for (int j=0; j<m_size2; j++)
         {
             Lattice::SetRandomSphericalDirection();
-            spinConfig[i*m_size+j][0] = temp_randomSphericalDirection[0];
-            spinConfig[i*m_size+j][1] = temp_randomSphericalDirection[1];
+            spinConfig[i*m_size1+j][0] = temp_randomSphericalDirection[0];
+            spinConfig[i*m_size1+j][1] = temp_randomSphericalDirection[1];
         }
     }
 }
@@ -153,11 +154,11 @@ void Lattice::InitSpin()
 void Lattice::ShowConfig()
 {
     cout << "Config:" << endl;
-    for (int i=0; i<m_size; i++)
+    for (int i=0; i<m_size1; i++)
     {
-        for (int j=0; j<m_size; j++)
+        for (int j=0; j<m_size2; j++)
         {
-            cout << "(" << spinConfig[i*m_size+j][0] << "," << spinConfig[i*m_size+j][1] << ")|";
+            cout << "(" << spinConfig[i*m_size1+j][0] << "," << spinConfig[i*m_size1+j][1] << ")|";
         }
         cout << endl;
     }
@@ -165,13 +166,13 @@ void Lattice::ShowConfig()
 
 void Lattice::SweepFlip()
 {
-    for (int i=0; i<m_size; i++)
+    for (int i=0; i<m_size1; i++)
     {
-        for (int j=0; j<m_size; j++)
+        for (int j=0; j<m_size2; j++)
         {
             deltaE = 0;
             // int flipPos = intRand(engineTime) % (int) pow(m_size,2);
-            temp_flipPos = i * m_size + j;
+            temp_flipPos = i * m_size1 + j;
             temp_selectedSiteSpin[0] = spinConfig[temp_flipPos][0];
             temp_selectedSiteSpin[1] = spinConfig[temp_flipPos][1];
 
@@ -209,10 +210,11 @@ void Lattice::SweepFlip()
 
 int main()
 {
-    int latSize = 1;
+    int latSizeRow = 1;
+    int latSizeColumn = 2;
     int latNeighbor = 4;
     double interactionJ = -1.0;
-    double externalZMageticField = 1.0;
+    double externalZMageticField = 0;
 
     double Tmin = 0.1;
     double Tmax = 5;
@@ -262,7 +264,7 @@ int main()
             sampledMsq = 0;
             totalSampleNum = 0;
 
-            Lattice lattice(latSize,latNeighbor,interactionJ,temperature[tempindex],externalZMageticField);
+            Lattice lattice(latSizeRow,latSizeColumn,latNeighbor,interactionJ,temperature[tempindex],externalZMageticField);
 
             for (int i=0; i<totalSweep*relaxationTime; i++)
             {

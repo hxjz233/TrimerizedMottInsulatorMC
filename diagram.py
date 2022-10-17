@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# theoretical value for 2*2 case
+# theoretical value for 1*1 case
 theoryU = [-2.9, -2.80009, -2.70255, -2.61357, -2.53731, -2.47399, -2.42186, \
 -2.37885, -2.34308, -2.31304, -2.28755, -2.26571, -2.24683, -2.23037, \
 -2.2159, -2.2031, -2.1917, -2.18148, -2.17228, -2.16395, -2.15638, \
@@ -82,8 +82,8 @@ deviationChi = np.sqrt(np.var(susceptibility/siteNum,axis=0)/(size[0]-1))
 # %% Draw Physical Quantities
 baseline = np.zeros(size[1],dtype='float')
 
-fig = plt.figure(figsize=(8,16),dpi=150)
-ax1 = fig.add_subplot(411)
+fig = plt.figure(figsize=(16,8),dpi=150)
+ax1 = fig.add_subplot(221)
 ax1.errorbar(temperature, resultU, yerr=deviationU, marker='o',
         ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
 ax1.plot(temperature,theoryU,linewidth=3, alpha=0.2)
@@ -94,7 +94,7 @@ ax2.plot(temperature, baseline, linestyle='dashed')
 ax1.set_title("E per site ~ T")
 
 
-specificHeatax1 = fig.add_subplot(412)
+specificHeatax1 = fig.add_subplot(222)
 specificHeatax1.errorbar(temperature, resultC, yerr=deviationC, marker='o',
         ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
 specificHeatax1.plot(temperature,theoryC,linewidth=3, alpha=0.2)
@@ -104,7 +104,7 @@ specificHeatax2.errorbar(temperature, resultC-theoryC, yerr=deviationC, marker='
 specificHeatax2.plot(temperature, baseline, linestyle='dashed')
 specificHeatax1.set_title("C per site ~ T")
 
-magax1 = fig.add_subplot(413)
+magax1 = fig.add_subplot(223)
 magax1.errorbar(temperature, resultaveM, yerr=deviationM, marker='o',
         ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
 magax1.plot(temperature,theoryM,linewidth=3, alpha=0.2)
@@ -114,7 +114,7 @@ magax2.errorbar(temperature, resultaveM-theoryM, yerr=deviationM, marker='o',
 magax2.plot(temperature, baseline, linestyle='dashed')
 magax1.set_title("M per site ~ T")
 
-susceptibilityax1 = fig.add_subplot(414)
+susceptibilityax1 = fig.add_subplot(224)
 susceptibilityax1.errorbar(temperature, resultChi, yerr=deviationChi, marker='o',
         ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
 susceptibilityax1.plot(temperature,theoryChi,linewidth=3, alpha=0.2)

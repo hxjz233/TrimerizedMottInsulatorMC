@@ -3,103 +3,69 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-siteNum = 3*3
+siteNum = 2*2
+
+field = ['E','Esq','M','Msq','Px','Pxsq','Py','Pysq']
+
+title = ["E per site ~ T", "C per site ~ T", 
+         "M per site ~ T", r"$\chi_m$ per site ~ T",
+         r"$P_x$ per site ~ T",r"$\chi_{e,x}$ per site ~ T", 
+         r"$P_y$ per site ~ T",r"$\chi_{e,y}$ per site ~ T"]
+
+superTitle = r"Deduced Ising, $s_\theta=\pi/3 \quad s_\phi=\pi/3 \quad \tau_\theta = \pi/7 \quad \tau_\phi = \pi/7$"
 
 # theoretical value
 theory = pd.read_csv("theoretical.csv",header=None)
 theory = theory.dropna(axis=1, how='all')
-theoryU = theory.to_numpy()[0] / siteNum
-theoryC = theory.to_numpy()[1] / siteNum
-theoryM = theory.to_numpy()[2] / siteNum
-theoryChi = theory.to_numpy()[3] / siteNum
+theorySize = theory.shape
+theory = theory.to_numpy()
+theory /= siteNum
 
 temperature = pd.read_csv("temperature.csv",header=None)
 temperature = temperature.dropna(axis=1, how='all')
 temperature = temperature.to_numpy()[0]
 
-resultE = pd.read_csv("resultE.csv",header=None)
-resultE = resultE.dropna(axis=1, how='all')
-size = resultE.shape
-resultE = resultE.to_numpy()
+size = pd.read_csv("resultE.csv",header=None).dropna(axis=1, how='all').shape
 
-resultEsq = pd.read_csv("resultEsq.csv",header=None)
-resultEsq = resultEsq.dropna(axis=1, how='all')
-resultEsq = resultEsq.to_numpy()
+result = np.zeros((theorySize[0],size[0],size[1]),dtype='float')
 
-resultM = pd.read_csv("resultM.csv",header=None)
-resultM = resultM.dropna(axis=1, how='all')
-resultM = resultM.to_numpy()
+for i in range(theorySize[0]):
+    result[i] = pd.read_csv("result"+field[i]+".csv",header=None).dropna(axis=1, how='all').to_numpy()
 
-resultMsq = pd.read_csv("resultMsq.csv",header=None)
-resultMsq = resultMsq.dropna(axis=1, how='all')
-resultMsq = resultMsq.to_numpy()
-
-
-specificHeat = np.zeros((size[0],size[1]),dtype='float')
 for i in range(size[0]):
     for j in range(size[1]):
-        specificHeat[i][j] = (resultEsq[i][j] - resultE[i][j] ** 2) / temperature[j] ** 2
-        
-susceptibility = np.zeros((size[0],size[1]),dtype='float')
-for i in range(size[0]):
-    for j in range(size[1]):
-        susceptibility[i][j] = (resultMsq[i][j] - resultM[i][j] ** 2) / temperature[j]
+        result[1][i][j] = (result[1][i][j] - result[0][i][j] ** 2) / temperature[j] ** 2
 
-resultU = np.mean(resultE/siteNum,axis=0)
-deviationU = np.sqrt(np.var(resultE/siteNum,axis=0)/(size[0]-1))
-resultC = np.mean(specificHeat/siteNum,axis=0)
-deviationC = np.sqrt(np.var(specificHeat/siteNum,axis=0)/(size[0]-1))
-resultaveM = np.mean(resultM/siteNum,axis=0)
-deviationM = np.sqrt(np.var(resultM/siteNum,axis=0)/(size[0]-1))
-resultChi = np.mean(susceptibility/siteNum,axis=0)
-deviationChi = np.sqrt(np.var(susceptibility/siteNum,axis=0)/(size[0]-1))
+for para in range(3,8,2):
+    for i in range(size[0]):
+        for j in range(size[1]):
+            result[para][i][j] = (result[para][i][j] - result[para-1][i][j] ** 2) / temperature[j]
 
-# %% Draw Physical Quantities
+resultMean = np.zeros((theorySize[0],size[1]),dtype='float')
+resultDev = np.zeros((theorySize[0],size[1]),dtype='float')
+
+for para in range(theorySize[0]):
+    resultMean[para] = np.mean(result[para]/siteNum,axis=0)
+    resultDev[para] = np.sqrt(np.var(result[para]/siteNum,axis=0)/(size[0]-1))
+
 baseline = np.zeros(size[1],dtype='float')
 
-fig = plt.figure(figsize=(16,8),dpi=150)
-ax1 = fig.add_subplot(221)
-ax1.errorbar(temperature, resultU, yerr=deviationU, marker='o',
-        ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
-ax1.plot(temperature,theoryU,linewidth=3, alpha=0.2)
-ax2 = ax1.twinx()
-ax2.errorbar(temperature, resultU-theoryU, yerr=deviationU, marker='o',
-          ms=1, mew=4, capsize=4, capthick=1, linestyle='none')
-ax2.plot(temperature, baseline, linestyle='dashed')
-ax1.set_title("E per site ~ T")
+fig = plt.figure(figsize=(16,16),dpi=150)
 
+for i in range(4):
+    for j in range(2):
+        plotAxes1 = fig.add_subplot(4,2,i*2+j+1)
+        plotAxes1.errorbar(temperature, resultMean[i*2+j], yerr=resultDev[i*2+j], marker='o',
+                ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
+        plotAxes1.plot(temperature,theory[i*2+j],linewidth=3, alpha=0.2)
+        plotAxes2 = plotAxes1.twinx()
+        plotAxes2.errorbar(temperature, resultMean[i*2+j]-theory[i*2+j], yerr=resultDev[i*2+j],
+                           marker='o',ms=1, mew=4, capsize=4, capthick=1, linestyle='none')
+        simuDevFromTheo = np.abs(resultMean[i*2+j]-theory[i*2+j]).mean() * 2
+        plotAxes2.set_ylim(-simuDevFromTheo,simuDevFromTheo)
+        plotAxes2.plot(temperature, baseline, linestyle='dashed')
+        plotAxes1.set_title(title[i*2+j])
 
-specificHeatax1 = fig.add_subplot(222)
-specificHeatax1.errorbar(temperature, resultC, yerr=deviationC, marker='o',
-        ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
-specificHeatax1.plot(temperature,theoryC,linewidth=3, alpha=0.2)
-specificHeatax2 = specificHeatax1.twinx()
-specificHeatax2.errorbar(temperature, resultC-theoryC, yerr=deviationC, marker='o',
-          ms=1, mew=4, capsize=4, capthick=1, linestyle='none')
-specificHeatax2.set_ylim(-0.01,0.01)
-specificHeatax2.plot(temperature, baseline, linestyle='dashed')
-specificHeatax1.set_title("C per site ~ T")
+plt.suptitle(superTitle,fontsize = 'xx-large',weight = 'extra bold', y=0.92)
 
-magax1 = fig.add_subplot(223)
-magax1.errorbar(temperature, resultaveM, yerr=deviationM, marker='o',
-        ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
-magax1.plot(temperature,theoryM,linewidth=3, alpha=0.2)
-magax2 = magax1.twinx()
-magax2.errorbar(temperature, resultaveM-theoryM, yerr=deviationM, marker='o',
-          ms=1, mew=4, capsize=4, capthick=1, linestyle='none')
-magax2.set_ylim(-0.02,0.02)
-magax2.plot(temperature, baseline, linestyle='dashed')
-magax1.set_title("M per site ~ T")
-
-susceptibilityax1 = fig.add_subplot(224)
-susceptibilityax1.errorbar(temperature, resultChi, yerr=deviationChi, marker='o',
-        ms=2, mew=4, capsize=2, capthick=1, alpha=0.2)
-susceptibilityax1.plot(temperature,theoryChi,linewidth=3, alpha=0.2)
-susceptibilityax2 = susceptibilityax1.twinx()
-susceptibilityax2.errorbar(temperature, resultChi-theoryChi, yerr=deviationChi, marker='o',
-          ms=1, mew=4, capsize=4, capthick=1, linestyle='none')
-susceptibilityax2.set_ylim(-0.02,0.02)
-susceptibilityax2.plot(temperature, baseline, linestyle='dashed')
-susceptibilityax1.set_title(r"$\chi$ per site ~ T")
-
-plt.savefig("IsingVerify.png")
+plt.savefig("IsingVerify2.png")

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-siteNum = 2*2
+siteNum = 3*2
 
 field = ['E','Esq','M','Msq','Px','Pxsq','Py','Pysq']
 

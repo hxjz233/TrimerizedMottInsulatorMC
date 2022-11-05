@@ -109,22 +109,26 @@ class Lattice
             }
             cout << spinConfig[0][0] << spinConfig[0][1] << spinConfig[0][2] << spinConfig[0][3] << endl;
             cout << GetSiteHamiltonian(0) << endl;
-
-            // GetFFTnorm("spin","z");
             
-            // for (int i=0; i<m_totalSite; i++)
-            // {
-            //     cout << in[i][0] << " " << in[i][1] << endl;
-            // }
-            // for (int i=0; i<m_totalSite; i++)
-            // {
-            //     cout << out[i][0] << " " << out[i][1] << endl;
-            // }
+            double norm[m_totalSite];
+
+            GetFFTnorm("pseudospin","x",norm);
+            
+            for (int i=0; i<m_totalSite; i++)
+            {
+                cout << in[i][0] << " " << in[i][1] << endl;
+            }
+            for (int i=0; i<m_totalSite; i++)
+            {
+                cout << norm[i] << " ";
+            }
+            cout << endl;
         }
 
         void DebugOutput()
         {
             ShowConfig();
+            cout << GetEnergy() << endl;
             // cout << GetSiteInnerProduct(0,1) << endl;
         }
 

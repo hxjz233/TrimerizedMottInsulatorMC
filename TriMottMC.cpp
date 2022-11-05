@@ -1,3 +1,5 @@
+// g++ -o ./TriMottMC.exe ./TriMottMC.cpp -lfftw3 -lm
+
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
@@ -5,6 +7,7 @@
 #include <random>
 #include <cmath>
 #include <cstring>
+#include <vector>
 // #include "fftw3.h"
 
 #include "lattice.h"
@@ -13,8 +16,37 @@
 #define LATTICESIZEMAX 10000
 using namespace std;
 
-void CalculateTheoreticalParams(Lattice lattice, int tempNum, double temperatureSequence[TEMPERATURESEQUENCEMAX], 
-    double resultParam[8][TEMPERATURESEQUENCEMAX], double resultNormParam[3][TEMPERATURESEQUENCEMAX][LATTICESIZEMAX])
+
+class TheoreticalCalculation
+{
+public:
+    vector<double> resultParam[8];
+    vector<vector<double>> resultNormParam[3];
+    TheoreticalCalculation(Lattice* lattice, int temperatureLength, double* temperatureInput)
+     : m_lattice(lattice), tempNum(temperatureLength), temperatureSequence(temperatureInput)
+    {
+        for (int i=0; i<8; i++)
+        {
+            resultParam[i].resize(tempNum);
+        }
+        
+        for (int normindex=0; normindex<3; normindex++)
+        {
+            resultNormParam[normindex].resize(tempNum);
+            for (int tempindex=0; tempindex<tempNum; tempindex++)
+            {
+                resultNormParam[normindex][tempindex].resize(lattice->m_totalSite);
+            }
+        }
+    }
+    void Calculate();
+private:
+    Lattice* m_lattice;
+    int tempNum;
+    double* temperatureSequence;
+};
+
+void TheoreticalCalculation::Calculate()
 {
     double Z[tempNum] = {0.0};
     double HZ[tempNum] = {0.0};
@@ -26,19 +58,19 @@ void CalculateTheoreticalParams(Lattice lattice, int tempNum, double temperature
     double PyZ[tempNum] = {0.0};
     double PysqZ[tempNum] = {0.0};
 
-    double MnormZ[tempNum][lattice.m_totalSite] = {0.0};
-    double MnormsqZ[tempNum][lattice.m_totalSite] = {0.0};
-    double PxnormZ[tempNum][lattice.m_totalSite] = {0.0};
-    double PxnormsqZ[tempNum][lattice.m_totalSite] = {0.0};
-    double PynormZ[tempNum][lattice.m_totalSite] = {0.0};
-    double PynormsqZ[tempNum][lattice.m_totalSite] = {0.0};
+    double MnormZ[tempNum][m_lattice->m_totalSite] = {0.0};
+    double MnormsqZ[tempNum][m_lattice->m_totalSite] = {0.0};
+    double PxnormZ[tempNum][m_lattice->m_totalSite] = {0.0};
+    double PxnormsqZ[tempNum][m_lattice->m_totalSite] = {0.0};
+    double PynormZ[tempNum][m_lattice->m_totalSite] = {0.0};
+    double PynormsqZ[tempNum][m_lattice->m_totalSite] = {0.0};
 
     double currentEMP[4];
-    double currentNorm[lattice.m_totalSite];
+    double currentNorm[m_lattice->m_totalSite];
 
-    for (int binConfig=0; binConfig<(1<<(lattice.m_totalSite*2)); binConfig++)
+    for (int binConfig=0; binConfig<(1<<(m_lattice->m_totalSite*2)); binConfig++)
     {
-        lattice.GetBinaryConfigIsingEMP(binConfig,currentEMP);
+        m_lattice->GetBinaryConfigIsingEMP(binConfig,currentEMP);
         for (int tempindex=0; tempindex<tempNum; tempindex++)
         {
             Z[tempindex] += exp(-currentEMP[0]/temperatureSequence[tempindex]);
@@ -51,20 +83,22 @@ void CalculateTheoreticalParams(Lattice lattice, int tempNum, double temperature
             PyZ[tempindex] += currentEMP[3] * exp(-currentEMP[0]/temperatureSequence[tempindex]);
             PysqZ[tempindex] += pow(currentEMP[3],2) * exp(-currentEMP[0]/temperatureSequence[tempindex]);
 
-            lattice.GetFFTnorm("spin","z",currentNorm);
-            for (int i=0; i<lattice.m_totalSite; i++)
+            m_lattice->GetFFTnorm("spin","z",currentNorm);
+            for (int i=0; i<m_lattice->m_totalSite; i++)
             {
                 MnormZ[tempindex][i] += currentNorm[i] * exp(-currentEMP[0]/temperatureSequence[tempindex]);
                 MnormsqZ[tempindex][i] += pow(currentNorm[i],2) * exp(-currentEMP[0]/temperatureSequence[tempindex]);
             }
-            lattice.GetFFTnorm("pseudospin","x",currentNorm);
-            for (int i=0; i<lattice.m_totalSite; i++)
+            m_lattice->GetFFTnorm("pseudospin","x",currentNorm);
+            for (int i=0; i<m_lattice->m_totalSite; i++)
             {
                 PxnormZ[tempindex][i] += currentNorm[i] * exp(-currentEMP[0]/temperatureSequence[tempindex]);
                 PxnormsqZ[tempindex][i] += pow(currentNorm[i],2) * exp(-currentEMP[0]/temperatureSequence[tempindex]);
+                // cout << currentNorm[i] << " ";
             }
-            lattice.GetFFTnorm("pseudospin","y",currentNorm);
-            for (int i=0; i<lattice.m_totalSite; i++)
+            // cout << endl;
+            m_lattice->GetFFTnorm("pseudospin","y",currentNorm);
+            for (int i=0; i<m_lattice->m_totalSite; i++)
             {
                 PynormZ[tempindex][i] += currentNorm[i] * exp(-currentEMP[0]/temperatureSequence[tempindex]);
                 PynormsqZ[tempindex][i] += pow(currentNorm[i],2) * exp(-currentEMP[0]/temperatureSequence[tempindex]);
@@ -81,7 +115,8 @@ void CalculateTheoreticalParams(Lattice lattice, int tempNum, double temperature
         resultParam[5][tempindex] = 1 / temperatureSequence[tempindex] * (PxsqZ[tempindex] * Z[tempindex] - pow(PxZ[tempindex],2)) / pow(Z[tempindex],2);
         resultParam[6][tempindex] = PyZ[tempindex] / Z[tempindex];
         resultParam[7][tempindex] = 1 / temperatureSequence[tempindex] * (PysqZ[tempindex] * Z[tempindex] - pow(PyZ[tempindex],2)) / pow(Z[tempindex],2);
-        for (int i=0; i<lattice.m_totalSite; i++)
+
+        for (int i=0; i<m_lattice->m_totalSite; i++)
         {
             resultNormParam[0][tempindex][i] = MnormsqZ[tempindex][i] / pow(MnormZ[tempindex][i],2) * Z[tempindex];
             resultNormParam[1][tempindex][i] = PxnormsqZ[tempindex][i] / pow(PxnormZ[tempindex][i],2) * Z[tempindex];
@@ -101,13 +136,13 @@ int main()
     double externalYElectricField = 0;
     double externalZMageticField = 0;
     string interactionType = "Ising";
-    // double assignedDirection[4] = {M_PI/4,M_PI/5,M_PI/6,M_PI/7};    // Spherical Coordination
-    double assignedDirection[4] = {0,0,0,0};    // Spherical Coordination
+    double assignedDirection[4] = {M_PI/4,M_PI/5,M_PI/6,M_PI/7};    // Spherical Coordination
+    // double assignedDirection[4] = {0,0,0,0};    // Spherical Coordination
 
     double Tmin = 0.1;
     double Tmax = 5;
-    // double Tstep = 0.1;
-    double Tstep = 1;
+    double Tstep = 0.1;
+    // double Tstep = 1;
     double temperature[TEMPERATURESEQUENCEMAX];
 
     int tempLength = (int)((Tmax-Tmin)/Tstep);
@@ -116,8 +151,8 @@ int main()
         temperature[i] = Tmax - Tstep * i;
     }
 
-    // int simulationCount = 10;
-    int simulationCount = 2;
+    int simulationCount = 10;
+    // int simulationCount = 2;
     int totalSweep = 1E5;
     // int sweepPerSample = totalSweep / 50;
     int sweepPerSample = 50;
@@ -127,6 +162,24 @@ int main()
     ofstream fout;
     clock_t start_time = clock();
 
+    // double theoreticalResult[8][tempLength];
+    // double theoreticalNormResult[3][tempLength][latSizeXMax*latSizeYMax];
+
+    // double energySequence[simulationCount][(int)(totalSweep*relaxationTime)];
+
+    Lattice lattice(latSizeXMax,latSizeYMax,latType,interactionJprime,interactionJprimeprime,externalXElectricField,externalYElectricField,
+        externalZMageticField,interactionType,assignedDirection);
+    // lattice.DebugInput(17+256);
+    // lattice.DebugOutput();
+    // double ans[4];
+    // lattice.GetBinaryConfigIsingEMP(13,ans);
+    // cout << ans[0] << " " << ans[1] << " " << ans[2] << " " << ans[3] << " " << endl;
+
+    // Testcase test(&lattice);
+    TheoreticalCalculation theory(&lattice, tempLength, temperature);
+    theory.Calculate();
+    lattice.InitSpin();
+
     double resultE[simulationCount][tempLength];
     double resultEsq[simulationCount][tempLength];
     double resultM[simulationCount][tempLength];
@@ -135,6 +188,7 @@ int main()
     double resultPxsq[simulationCount][tempLength];
     double resultPy[simulationCount][tempLength];
     double resultPysq[simulationCount][tempLength];
+    double resultBinder[3][simulationCount][tempLength][lattice.m_totalSite];
 
     double configEnergy;
     double sampledEnergy;
@@ -147,26 +201,15 @@ int main()
     double sampledPxsq;
     double sampledPy;
     double sampledPysq;
+    double configFFTNorm[3][lattice.m_totalSite];
+    double sampledFFTNorm[6][lattice.m_totalSite];  // notice only work when concern Mz, Px, Py Binder parameters
 
     int totalSampleNum;
-    double theoreticalResult[8][TEMPERATURESEQUENCEMAX];
-    double theoreticalNormResult[3][TEMPERATURESEQUENCEMAX][LATTICESIZEMAX];
 
-    // double energySequence[simulationCount][(int)(totalSweep*relaxationTime)];
-
-    Lattice lattice(latSizeXMax,latSizeYMax,latType,interactionJprime,interactionJprimeprime,externalXElectricField,externalYElectricField,
-        externalZMageticField,interactionType,assignedDirection);
-    // lattice.DebugInput(17+256);
-    // lattice.DebugOutput();
-    // double ans[4];
-    // lattice.GetBinaryConfigIsingEMP(13,ans);
-    // cout << ans[0] << " " << ans[1] << " " << ans[2] << " " << ans[3] << " " << endl;
-
-
-    if (interactionType == "Ising")
-    {
-        CalculateTheoreticalParams(lattice, tempLength, temperature, theoreticalResult, theoreticalNormResult);
-    }
+    // if (interactionType == "Ising")
+    // {
+    //     CalculateTheoreticalParams(lattice, tempLength, temperature, theoreticalResult, theoreticalNormResult);
+    // }
 
 
     for (int simuindex=0; simuindex<simulationCount; simuindex++)
@@ -185,6 +228,13 @@ int main()
             sampledPxsq = 0;
             sampledPy = 0;
             sampledPysq = 0;
+            for (int j=0; j<6; j++)
+            {
+                for (int k=0; k<lattice.m_totalSite; k++)
+                {
+                    sampledFFTNorm[j][k] = 0;
+                }
+            }
             totalSampleNum = 0;
 
             // Lattice lattice(latSizeXMax,latSizeYMax,latType,interactionJ,temperature[tempindex],externalZMageticField,interactionType);
@@ -218,6 +268,17 @@ int main()
                     configPolarization[1] = lattice.GetPolarizationY();
                     sampledPy += configPolarization[1];
                     sampledPysq += pow(configPolarization[1],2);
+                    lattice.GetFFTnorm("spin","z",configFFTNorm[0]);
+                    lattice.GetFFTnorm("pseudospin","x",configFFTNorm[1]);
+                    lattice.GetFFTnorm("pseudospin","y",configFFTNorm[2]);
+                    for (int j=0; j<3; j++)
+                    {
+                        for (int k=0; k<lattice.m_totalSite; k++)
+                        {
+                            sampledFFTNorm[2*j][k] += configFFTNorm[j][k];
+                            sampledFFTNorm[2*j+1][k] += pow(configFFTNorm[j][k],2);
+                        }
+                    }
                 }
             }
             // cout << sampledEnergy << " " << sampledM << " " << sampledPx << " " << sampledPy << " " << endl;
@@ -230,6 +291,16 @@ int main()
             resultPxsq[simuindex][tempindex] = sampledPxsq / totalSampleNum;
             resultPy[simuindex][tempindex] = sampledPy / totalSampleNum;
             resultPysq[simuindex][tempindex] = sampledPysq / totalSampleNum;
+            for (int j=0; j<3; j++)
+            {
+                for (int k=0; k<lattice.m_totalSite; k++)
+                {
+                    resultBinder[j][simuindex][tempindex][k] = sampledFFTNorm[2*j+1][k] / pow(sampledFFTNorm[2*j][k],2) * totalSampleNum;
+                    // cout << sampledFFTNorm[2*j+1][k] / totalSampleNum << " " << sampledFFTNorm[2*j][k] / totalSampleNum << endl;
+                }
+            }
+            
+            // cout << resultE[simuindex][tempindex] << endl;
 
             cout << simuindex << " CoreNum " << tempindex << " temperature finished" << endl; 
         }
@@ -344,15 +415,34 @@ int main()
         fout << endl;
     }
     fout.close();
+
+    fout.open("resultBinder.csv",ios::out);
+    for (int i=0; i<3; i++)
+    {
+        for (int simu=0; simu<simulationCount; simu++)
+        {
+            for (int j=0; j<tempLength; j++)
+            {
+                for (int k=0; k<lattice.m_totalSite; k++)
+                {
+                    fout << resultBinder[i][simu][j][k] << ",";
+                }
+                fout << endl;
+            }
+            fout << endl;
+        }
+        fout << endl;
+    }
+    fout.close();
     
-    fout.open("theoreticalFFT.csv",ios::out);
+    fout.open("theoreticalBinder.csv",ios::out);
     for (int i=0; i<3; i++)
     {
         for (int j=0; j<tempLength; j++)
         {
             for (int k=0; k<lattice.m_totalSite; k++)
             {
-                fout << theoreticalNormResult[i][j][k] << ",";
+                fout << theory.resultNormParam[i][j][k] << ",";
             }
             fout << endl;
         }
@@ -365,7 +455,7 @@ int main()
     {
         for (int j=0; j<tempLength; j++)
         {
-            fout << theoreticalResult[i][j] << ",";
+            fout << theory.resultParam[i][j] << ",";
         }
         fout << endl;
     }

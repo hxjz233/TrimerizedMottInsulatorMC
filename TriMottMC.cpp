@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <vector>
+#include <sstream>
 // #include "fftw3.h"
 
 #include "lattice.h"
@@ -126,338 +127,172 @@ void TheoreticalCalculation::Calculate()
 }
 
 int main()
-{
-    int latSizeXMax = 3;
-    int latSizeYMax = 2;
-    string latType = "Triangle";
-    double interactionJprime = -1.0;
-    double interactionJprimeprime = 0.0;
-    double externalXElectricField = 0;
-    double externalYElectricField = 0;
-    double externalZMageticField = 0;
-    string interactionType = "Ising";
-    double assignedDirection[4] = {M_PI/4,M_PI/5,M_PI/6,M_PI/7};    // Spherical Coordination
-    // double assignedDirection[4] = {0,0,0,0};    // Spherical Coordination
-
-    double Tmin = 0.1;
-    double Tmax = 5;
-    double Tstep = 0.1;
-    // double Tstep = 1;
-    double temperature[TEMPERATURESEQUENCEMAX];
-
-    int tempLength = (int)((Tmax-Tmin)/Tstep);
-    for (int i=0; i<tempLength; i++)
-    {
-        temperature[i] = Tmax - Tstep * i;
-    }
-
-    int simulationCount = 10;
-    // int simulationCount = 2;
+{    
+    int latSizeXMax;
+    int latSizeYMax;
+    string latType;
+    double interactionJprime;
+    double interactionJprimeprime;
+    double externalXElectricField;
+    double externalYElectricField;
+    double externalZMageticField;
+    string interactionType;
+    // double assignedDirection[4] = {M_PI/4,M_PI/5,M_PI/6,M_PI/7};    // Spherical Coordination
+    double temperature;
+    
     int totalSweep = 1E5;
-    // int sweepPerSample = totalSweep / 50;
     int sweepPerSample = 50;
     double relaxationTime = 0.1;
 
-
+    int taskID = 1;
+    
+    ifstream indata("input.csv",ios::in);
     ofstream fout;
-    clock_t start_time = clock();
+    string outputName;
 
-    // double theoreticalResult[8][tempLength];
-    // double theoreticalNormResult[3][tempLength][latSizeXMax*latSizeYMax];
-
-    // double energySequence[simulationCount][(int)(totalSweep*relaxationTime)];
-
-    Lattice lattice(latSizeXMax,latSizeYMax,latType,interactionJprime,interactionJprimeprime,externalXElectricField,externalYElectricField,
-        externalZMageticField,interactionType,assignedDirection);
-    // lattice.DebugInput(17+256);
-    // lattice.DebugOutput();
-    // double ans[4];
-    // lattice.GetBinaryConfigIsingEMP(13,ans);
-    // cout << ans[0] << " " << ans[1] << " " << ans[2] << " " << ans[3] << " " << endl;
-
-    // Testcase test(&lattice);
-    TheoreticalCalculation theory(&lattice, tempLength, temperature);
-    theory.Calculate();
-    lattice.InitSpin();
-
-    double resultE[simulationCount][tempLength];
-    double resultEsq[simulationCount][tempLength];
-    double resultM[simulationCount][tempLength];
-    double resultMsq[simulationCount][tempLength];
-    double resultPx[simulationCount][tempLength];
-    double resultPxsq[simulationCount][tempLength];
-    double resultPy[simulationCount][tempLength];
-    double resultPysq[simulationCount][tempLength];
-    double resultBinder[3][simulationCount][tempLength][lattice.m_totalSite];
-
-    double configEnergy;
-    double sampledEnergy;
-    double sampledEsq;
-    double configMagnetization;
-    double sampledM;
-    double sampledMsq;
-    double configPolarization[2];
-    double sampledPx;
-    double sampledPxsq;
-    double sampledPy;
-    double sampledPysq;
-    double configFFTNorm[3][lattice.m_totalSite];
-    double sampledFFTNorm[6][lattice.m_totalSite];  // notice only work when concern Mz, Px, Py Binder parameters
-
-    int totalSampleNum;
-
-    // if (interactionType == "Ising")
-    // {
-    //     CalculateTheoreticalParams(lattice, tempLength, temperature, theoreticalResult, theoreticalNormResult);
-    // }
-
-
-    for (int simuindex=0; simuindex<simulationCount; simuindex++)
+    if (!indata)
     {
-        for (int tempindex=0; tempindex<tempLength; tempindex++)
+        cout << "file not found!" << endl;
+        exit(1);
+    }
+    string line;
+    istringstream sin(line);
+    vector<string> fieldTypes;
+    string fieldType;
+
+    getline(indata, line);
+    sin.clear();
+    sin.str(line);
+    fieldTypes.clear();
+
+    while (getline(sin, fieldType, ','))
+    {
+        fieldTypes.push_back(fieldType);
+        // cout << fieldType << " " << endl;
+    }
+
+    string field;
+    while (getline(indata, line))
+    {
+        clock_t start_time = clock();
+        int i=1;
+        sin.clear();
+        sin.str(line);
+        outputName = "simuResult_";
+        for (vector<string>::iterator iter=fieldTypes.begin(); iter!=fieldTypes.end(); iter++)
         {
-            configEnergy = 0;
-            sampledEnergy = 0;
-            sampledEsq = 0;
-            configMagnetization = 0;
-            sampledM = 0;
-            sampledMsq = 0;
-            configPolarization[0] = 0;
-            configPolarization[1] = 0;
-            sampledPx = 0;
-            sampledPxsq = 0;
-            sampledPy = 0;
-            sampledPysq = 0;
-            for (int j=0; j<6; j++)
+            // cout << i;
+            // i++;
+            getline(sin,field,',');
+            if (*iter == "latSizeXMax")                     latSizeXMax = stoi(field);
+            else if (*iter == "latSizeYMax")                latSizeYMax = stoi(field);
+            else if (*iter == "latType")                    latType = field;
+            else if (*iter == "interactionJprime")          interactionJprime = stod(field);
+            else if (*iter == "interactionJprimeprime")     interactionJprimeprime = stod(field);
+            else if (*iter == "externalXElectricField")     externalXElectricField = stod(field);
+            else if (*iter == "externalYElectricField")     externalYElectricField = stod(field);
+            else if (*iter == "externalZMageticField")      externalZMageticField = stod(field);
+            else if (*iter == "interactionType")            interactionType = field;
+            else if (*iter == "temperature")                temperature = stod(field);
+            else
             {
-                for (int k=0; k<lattice.m_totalSite; k++)
-                {
-                    sampledFFTNorm[j][k] = 0;
-                }
+                // cout << i;
+                // i++;
+                cout << *iter << " ";
+                cout << "unknown field!" << endl;
+                exit(1);
             }
-            totalSampleNum = 0;
+            outputName += field + "_";
+        }
+        Lattice lattice(latSizeXMax,latSizeYMax,latType,interactionJprime,interactionJprimeprime,externalXElectricField,externalYElectricField,
+            externalZMageticField,interactionType);
+        
+        lattice.SetTemperature(temperature);
 
-            // Lattice lattice(latSizeXMax,latSizeYMax,latType,interactionJ,temperature[tempindex],externalZMageticField,interactionType);
-            lattice.SetTemperature(temperature[tempindex]);
+        double configEnergy = 0;
+        double sampledEnergy = 0;
+        double sampledEsq = 0;
+        double configMagnetization = 0;
+        double sampledM = 0;
+        double sampledMsq = 0;
+        double configPolarization[2] = {0};
+        double sampledPx = 0;
+        double sampledPxsq = 0;
+        double sampledPy = 0;
+        double sampledPysq = 0;
+        double configFFTNorm[3][lattice.m_totalSite] = {0};
+        double sampledFFTNorm[6][lattice.m_totalSite] = {0};  // notice only work when concern Mz, Px, Py Binder parameters
+        double resultBinder[3][lattice.m_totalSite] = {0};
 
-            for (int i=0; i<totalSweep*relaxationTime; i++)
+
+        int totalSampleNum = 0;
+        for (int i=0; i<totalSweep*relaxationTime; i++)
+        {
+            lattice.SweepFlip();
+        }
+        for (int i=0; i<totalSweep*(1-relaxationTime); i++)
+        {
+            lattice.SweepFlip();
+            if (i % sweepPerSample == 0)
             {
-                // configEnergy = lattice.GetEnergy();
-                // energySequence[simuindex][i] = configEnergy;
-                lattice.SweepFlip();
-            }
-            // lattice.DebugOutput();
-            // lattice.SweepFlip();
-            // lattice.DebugOutput();
-
-            for (int i=0; i<totalSweep*(1-relaxationTime); i++)
-            {
-                lattice.SweepFlip();
-                if (i % sweepPerSample == 0)
+                totalSampleNum++;
+                configEnergy = lattice.GetEnergy();
+                sampledEnergy += configEnergy;
+                sampledEsq += pow(configEnergy,2);
+                configMagnetization = lattice.GetMagnetization();
+                sampledM += configMagnetization;
+                sampledMsq += pow(configMagnetization,2);
+                configPolarization[0] = lattice.GetPolarizationX();
+                sampledPx += configPolarization[0];
+                sampledPxsq += pow(configPolarization[0],2);
+                configPolarization[1] = lattice.GetPolarizationY();
+                sampledPy += configPolarization[1];
+                sampledPysq += pow(configPolarization[1],2);
+                lattice.GetFFTnorm("spin","z",configFFTNorm[0]);
+                lattice.GetFFTnorm("pseudospin","x",configFFTNorm[1]);
+                lattice.GetFFTnorm("pseudospin","y",configFFTNorm[2]);
+                for (int j=0; j<3; j++)
                 {
-                    totalSampleNum++;
-                    configEnergy = lattice.GetEnergy();
-                    sampledEnergy += configEnergy;
-                    sampledEsq += pow(configEnergy,2);
-                    configMagnetization = lattice.GetMagnetization();
-                    sampledM += configMagnetization;
-                    sampledMsq += pow(configMagnetization,2);
-                    configPolarization[0] = lattice.GetPolarizationX();
-                    sampledPx += configPolarization[0];
-                    sampledPxsq += pow(configPolarization[0],2);
-                    configPolarization[1] = lattice.GetPolarizationY();
-                    sampledPy += configPolarization[1];
-                    sampledPysq += pow(configPolarization[1],2);
-                    lattice.GetFFTnorm("spin","z",configFFTNorm[0]);
-                    lattice.GetFFTnorm("pseudospin","x",configFFTNorm[1]);
-                    lattice.GetFFTnorm("pseudospin","y",configFFTNorm[2]);
-                    for (int j=0; j<3; j++)
+                    for (int k=0; k<lattice.m_totalSite; k++)
                     {
-                        for (int k=0; k<lattice.m_totalSite; k++)
-                        {
-                            sampledFFTNorm[2*j][k] += configFFTNorm[j][k];
-                            sampledFFTNorm[2*j+1][k] += pow(configFFTNorm[j][k],2);
-                        }
+                        sampledFFTNorm[2*j][k] += configFFTNorm[j][k];
+                        sampledFFTNorm[2*j+1][k] += pow(configFFTNorm[j][k],2);
                     }
                 }
             }
-            // cout << sampledEnergy << " " << sampledM << " " << sampledPx << " " << sampledPy << " " << endl;
-
-            resultE[simuindex][tempindex] = sampledEnergy / totalSampleNum;
-            resultEsq[simuindex][tempindex] = sampledEsq / totalSampleNum;
-            resultM[simuindex][tempindex] = sampledM / totalSampleNum;
-            resultMsq[simuindex][tempindex] = sampledMsq / totalSampleNum;
-            resultPx[simuindex][tempindex] = sampledPx / totalSampleNum;
-            resultPxsq[simuindex][tempindex] = sampledPxsq / totalSampleNum;
-            resultPy[simuindex][tempindex] = sampledPy / totalSampleNum;
-            resultPysq[simuindex][tempindex] = sampledPysq / totalSampleNum;
-            for (int j=0; j<3; j++)
-            {
-                for (int k=0; k<lattice.m_totalSite; k++)
-                {
-                    resultBinder[j][simuindex][tempindex][k] = sampledFFTNorm[2*j+1][k] / pow(sampledFFTNorm[2*j][k],2) * totalSampleNum;
-                    // cout << sampledFFTNorm[2*j+1][k] / totalSampleNum << " " << sampledFFTNorm[2*j][k] / totalSampleNum << endl;
-                }
-            }
-            
-            // cout << resultE[simuindex][tempindex] << endl;
-
-            cout << simuindex << " CoreNum " << tempindex << " temperature finished" << endl; 
         }
-    }
-
-
-    clock_t calc_time = clock();
-    cout << "Calculation finished, elapsed time: " << (double)(calc_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
-
-    // fout.open("validateEquilibrium.csv",ios::out);
-    // for (int i=0; i<simulationCount; i++)
-    // {
-    //     for (int j=0; j<totalSweep*relaxationTime; j++)
-    //     {
-    //         fout << energySequence[i][j] << ",";
-    //     }
-    //     fout << endl;
-    // }
-    // fout.close();
-
-    fout.open("temperature.csv",ios::out);
-    for (int i=0; i<tempLength; i++)
-    {
-        fout << temperature[i] << ",";
-    }
-    fout.close();
-
-    fout.open("resultE.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultE[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultEsq.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultEsq[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultM.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultM[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultMsq.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultMsq[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultPx.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultPx[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultPxsq.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultPxsq[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultPy.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultPy[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultPysq.csv",ios::out);
-    for (int i=0; i<simulationCount; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << resultPysq[i][j] << ",";
-        }
-        fout << endl;
-    }
-    fout.close();
-
-    fout.open("resultBinder.csv",ios::out);
-    for (int i=0; i<3; i++)
-    {
-        for (int simu=0; simu<simulationCount; simu++)
-        {
-            for (int j=0; j<tempLength; j++)
-            {
-                for (int k=0; k<lattice.m_totalSite; k++)
-                {
-                    fout << resultBinder[i][simu][j][k] << ",";
-                }
-                fout << endl;
-            }
-            fout << endl;
-        }
-        fout << endl;
-    }
-    fout.close();
-    
-    fout.open("theoreticalBinder.csv",ios::out);
-    for (int i=0; i<3; i++)
-    {
-        for (int j=0; j<tempLength; j++)
+        sampledEnergy /= totalSampleNum;
+        sampledEsq /= totalSampleNum;
+        sampledM /= totalSampleNum;
+        sampledMsq /= totalSampleNum;
+        sampledPx /= totalSampleNum;
+        sampledPxsq /= totalSampleNum;
+        sampledPy /= totalSampleNum;
+        sampledPysq /= totalSampleNum;
+        for (int j=0; j<3; j++)
         {
             for (int k=0; k<lattice.m_totalSite; k++)
             {
-                fout << theory.resultNormParam[i][j][k] << ",";
+                resultBinder[j][k] = sampledFFTNorm[2*j+1][k] / pow(sampledFFTNorm[2*j][k],2) * totalSampleNum;
+            }
+        }
+        fout.open(outputName+"Thermo.csv",ios::out);
+        fout << sampledEnergy << "," << sampledEsq << "," << sampledM << "," << sampledMsq << "," 
+             << sampledPx << "," << sampledPxsq << "," << sampledPy << "," << sampledPysq;
+        fout.close();
+        fout.open(outputName+"Binder.csv",ios::out);
+        for (int i=0; i<3; i++)
+        {
+            for (int k=0; k<lattice.m_totalSite; k++)
+            {
+                fout << resultBinder[i][k] << ",";
             }
             fout << endl;
         }
-        fout << endl;
-    }
-    fout.close();
+        fout.close();
 
-    fout.open("theoretical.csv",ios::out);
-    for (int i=0; i<8; i++)
-    {
-        for (int j=0; j<tempLength; j++)
-        {
-            fout << theory.resultParam[i][j] << ",";
-        }
-        fout << endl;
+        clock_t calc_time = clock();
+        cout << "Task " << taskID << " completed, elapsed time: " << (double)(calc_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
+        taskID++;
     }
-    fout.close();
 }

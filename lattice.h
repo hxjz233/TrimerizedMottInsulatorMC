@@ -148,7 +148,7 @@ class Lattice
         int m_neighborNum;
         double m_interactionJ1;
         double m_interactionJ2;
-        double m_temperature = 1;
+        double m_temperature;
         double m_externalMagField;
         double m_externalXElecField;
         double m_externalYElecField;
@@ -251,7 +251,7 @@ class Lattice
         }
 };
 
-Lattice::Lattice(int maxX, int maxY, string latType, double interactionJ1, double interactionJ2, double externalXElecField, double externalYElecField,
+Lattice::Lattice(int maxX, int maxY, string latType, double interactionJ1, double interactionJ2, double externalXElecField=0, double externalYElecField=0,
      double externalMagField=0, string interactionType="Ising", double* deducedIsingDirection=nullptr)
     : m_size1(maxX), m_size2(maxY), m_interactionJ1(interactionJ1), m_interactionJ2(interactionJ2), m_externalMagField(externalMagField),
         m_externalXElecField(externalXElecField), m_externalYElecField(externalYElecField), m_interactionType(interactionType), m_deducedIsingDirection(deducedIsingDirection)
@@ -337,6 +337,9 @@ void Lattice::InitSpin()    // Heisenberg ConfigE
                 Lattice::SetRandomSphericalDirection();
                 spinConfig[i*m_size2+j][0] = temp_randomSphericalDirection[0];
                 spinConfig[i*m_size2+j][1] = temp_randomSphericalDirection[1];
+                Lattice::SetRandomSphericalDirection();
+                spinConfig[i*m_size2+j][2] = temp_randomSphericalDirection[0];
+                spinConfig[i*m_size2+j][3] = temp_randomSphericalDirection[1];
             }
         }
 
@@ -344,11 +347,12 @@ void Lattice::InitSpin()    // Heisenberg ConfigE
         {
             for (int j=0; j<m_size2; j++)
             {
-                for (int k=0; k<m_neighborNum; k++)
-                {
-                    configE += m_interactionJ1 * Lattice::GetSiteInnerProduct(i*m_size2+j,neighbor[i*m_size2+j][k]) / 2;
-                }
-                configE -= m_externalMagField * Lattice::GetSiteZSpinComponent(i*m_size2+j);
+                // for (int k=0; k<m_neighborNum; k++)
+                // {
+                //     configE += m_interactionJ1 * Lattice::GetSiteInnerProduct(i*m_size2+j,neighbor[i*m_size2+j][k]) / 2;
+                // }
+                // configE -= m_externalMagField * Lattice::GetSiteZSpinComponent(i*m_size2+j);
+                configE += GetSiteHamiltonian(i*m_size2+j);
             }
         }
     }
@@ -426,26 +430,42 @@ void Lattice::SweepFlip()   // deltaE remember: 6 sites
 
             if (m_interactionType == "Heisenberg")
             {
-                temp_flipPos = i * m_size2 + j;
-                temp_selectedSiteSpin[0] = spinConfig[temp_flipPos][0];
-                temp_selectedSiteSpin[1] = spinConfig[temp_flipPos][1];
+                // temp_flipPos = i * m_size2 + j;
+                // temp_selectedSiteSpin[0] = spinConfig[temp_flipPos][0];
+                // temp_selectedSiteSpin[1] = spinConfig[temp_flipPos][1];
+                temp_flipPos = intRand(engineTime) % ((m_totalSite)*2);
+                isComponentSFlipped = temp_flipPos % 2;
+                temp_flipPos /= 2;
+
+                for (int k=0; k<4; k++)
+                {
+                    temp_selectedSiteSpin[k] = spinConfig[temp_flipPos][k];
+                }
 
                 Lattice::SetRandomSphericalDirection();
 
-                for (int k=0; k<m_neighborNum; k++)
+                deltaE -= GetSiteHamiltonian(temp_flipPos);
+                for (int k=0; k<3; k++)  // remember to modify when add layers
                 {
-                    deltaE -= m_interactionJ1 * Lattice::GetSiteInnerProduct(temp_flipPos,neighbor[temp_flipPos][k]);
+                    deltaE -= GetSiteHamiltonian(neighbor[temp_flipPos][2*k+1]);
                 }
-                deltaE += m_externalMagField * Lattice::GetSiteZSpinComponent(temp_flipPos);
 
-                spinConfig[temp_flipPos][0] = temp_randomSphericalDirection[0];
-                spinConfig[temp_flipPos][1] = temp_randomSphericalDirection[1];
-
-                for (int k=0; k<m_neighborNum; k++)
+                if (isComponentSFlipped)
                 {
-                    deltaE += m_interactionJ1 * Lattice::GetSiteInnerProduct(temp_flipPos,neighbor[temp_flipPos][k]);
+                    spinConfig[temp_flipPos][0] = temp_randomSphericalDirection[0];
+                    spinConfig[temp_flipPos][1] = temp_randomSphericalDirection[1];
                 }
-                deltaE -= m_externalMagField * Lattice::GetSiteZSpinComponent(temp_flipPos);
+                else
+                {
+                    spinConfig[temp_flipPos][2] = temp_randomSphericalDirection[0];
+                    spinConfig[temp_flipPos][3] = temp_randomSphericalDirection[1]; 
+                }
+
+                deltaE += GetSiteHamiltonian(temp_flipPos);
+                for (int k=0; k<3; k++)  // remember to modify when add layers
+                {
+                    deltaE += GetSiteHamiltonian(neighbor[temp_flipPos][2*k+1]);
+                }
 
                 if (realRand(engineTime) < exp(-deltaE / m_temperature))
                 {
@@ -454,8 +474,10 @@ void Lattice::SweepFlip()   // deltaE remember: 6 sites
                 }
                 else
                 {
-                    spinConfig[temp_flipPos][0] = temp_selectedSiteSpin[0];
-                    spinConfig[temp_flipPos][1] = temp_selectedSiteSpin[1];
+                    for (int k=0; k<4; k++)
+                    {
+                        spinConfig[temp_flipPos][k] = temp_selectedSiteSpin[k];
+                    }
                 }
             }
 
